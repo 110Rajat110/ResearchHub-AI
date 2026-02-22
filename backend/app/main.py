@@ -11,6 +11,9 @@ from .routers import auth_router, workspace_router, paper_router, chat_router
 # Create all database tables
 models.Base.metadata.create_all(bind=engine)
 
+# Define database URL (as per instruction to update/define database path)
+appDATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./researchhub.db")
+
 app = FastAPI(
     title="ResearchHub AI",
     description="Intelligent Research Paper Management and Analysis System powered by Groq Llama 3.3 70B",
@@ -20,7 +23,14 @@ app = FastAPI(
     }
 )
 
-# ─── CORS ────────────────────────────────────────────────────────────────────
+# ─── Request Logging & CORS ──────────────────────────────────────────────────
+@app.middleware("http")
+async def log_requests(request, call_next):
+    print(f"Incoming: {request.method} {request.url}")
+    response = await call_next(request)
+    print(f"Outgoing: {response.status_code}")
+    return response
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
