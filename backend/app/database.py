@@ -6,7 +6,10 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:////app/researchhub.db")
+DATABASE_URL = os.getenv("DATABASE_URL")
+if not DATABASE_URL:
+    is_vercel = os.environ.get("VERCEL") == "1"
+    DATABASE_URL = "sqlite:////tmp/researchhub.db" if is_vercel else "sqlite:///./researchhub.db"
 
 engine = create_engine(
     DATABASE_URL,

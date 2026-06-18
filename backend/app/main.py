@@ -1,6 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
+import os
 
 load_dotenv()
 
@@ -11,8 +12,24 @@ from .routers import auth_router, workspace_router, paper_router, chat_router
 # Create all database tables
 models.Base.metadata.create_all(bind=engine)
 
-# Define database URL (as per instruction to update/define database path)
-appDATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./researchhub.db")
+def seed_demo_user():
+    from .database import SessionLocal
+    from .auth import hash_password
+    db = SessionLocal()
+    try:
+        if not db.query(models.User).filter(models.User.email == "test@research.ai").first():
+            db.add(models.User(
+                email="test@research.ai",
+                username="demo_user",
+                hashed_password=hash_password("password123")
+            ))
+            db.commit()
+    except Exception as e:
+        print(f"Failed to seed demo user: {e}")
+    finally:
+        db.close()
+
+seed_demo_user()
 
 app = FastAPI(
     title="ResearchHub AI",
