@@ -19,10 +19,10 @@ async def search_openalex(query: str, per_page: int = 15) -> List[schemas.Search
         "search": query,
         "per-page": per_page,
         "select": "id,title,authorships,abstract_inverted_index,publication_year,doi,primary_location",
-        "mailto": "researchhub-api@example.com"
+        "mailto": "researchhub.app.render@gmail.com"
     }
     try:
-        async with httpx.AsyncClient(timeout=15.0) as client:
+        async with httpx.AsyncClient(timeout=15.0, headers={"User-Agent": "ResearchHub/1.0 (mailto:researchhub.app.render@gmail.com)"}) as client:
             resp = await client.get(OPENALEX_BASE, params=params)
             resp.raise_for_status()
             data = resp.json()
