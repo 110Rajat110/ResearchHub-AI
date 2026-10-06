@@ -19,6 +19,7 @@ async def search_openalex(query: str, per_page: int = 15) -> List[schemas.Search
         "search": query,
         "per-page": per_page,
         "select": "id,title,authorships,abstract_inverted_index,publication_year,doi,primary_location",
+        "mailto": "researchhub-api@example.com"
     }
     try:
         async with httpx.AsyncClient(timeout=15.0) as client:
