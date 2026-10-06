@@ -13,54 +13,105 @@ router = APIRouter(prefix="/papers", tags=["Papers"])
 OPENALEX_BASE = "https://api.openalex.org/works"
 
 
+SEMANTIC_SCHOLAR_BASE = "https://api.semanticscholar.org/graph/v1/paper/search"
+
+
+async def search_semantic_scholar(query: str, per_page: int = 15) -> List[schemas.SearchResult]:
+    """Fallback search using Semantic Scholar API (free, no key required)."""
+    params = {
+        "query": query,
+        "limit": per_page,
+        "fields": "title,authors,abstract,year,externalIds,openAccessPdf,url",
+    }
+    async with httpx.AsyncClient(timeout=15.0) as client:
+        resp = await client.get(SEMANTIC_SCHOLAR_BASE, params=params)
+        resp.raise_for_status()
+        data = resp.json()
+
+    results = []
+    for work in data.get("data", []):
+        authors = [a.get("name", "") for a in (work.get("authors") or [])[:5]]
+        doi = (work.get("externalIds") or {}).get("DOI", "")
+        pdf_info = work.get("openAccessPdf") or {}
+        url = pdf_info.get("url") or work.get("url") or (f"https://doi.org/{doi}" if doi else "")
+        paper_id = work.get("paperId", "")
+        results.append(schemas.SearchResult(
+            title=work.get("title") or "Untitled",
+            authors=", ".join(authors),
+            abstract=(work.get("abstract") or "No abstract available.")[:1000],
+            year=work.get("year"),
+            doi=doi,
+            url=url,
+            source="semantic_scholar",
+            external_id=f"SS:{paper_id}",
+        ))
+    return results
+
+
 async def search_openalex(query: str, per_page: int = 15) -> List[schemas.SearchResult]:
-    """Search OpenAlex (free, no API key required)."""
+    """Search OpenAlex with retries, falling back to Semantic Scholar on 429."""
+    import asyncio
     params = {
         "search": query,
         "per-page": per_page,
         "select": "id,title,authorships,abstract_inverted_index,publication_year,doi,primary_location",
-        "mailto": "researchhub.app.render@gmail.com"
+        "mailto": "researchhub.app.render@gmail.com",
     }
+    headers = {"User-Agent": "ResearchHub/1.0 (mailto:researchhub.app.render@gmail.com)"}
+
+    last_error = None
+    for attempt in range(3):
+        try:
+            async with httpx.AsyncClient(timeout=15.0, headers=headers) as client:
+                resp = await client.get(OPENALEX_BASE, params=params)
+                if resp.status_code == 429:
+                    wait = 2 ** attempt
+                    await asyncio.sleep(wait)
+                    last_error = "429 Too Many Requests"
+                    continue
+                resp.raise_for_status()
+                data = resp.json()
+
+            results = []
+            for work in data.get("results", []):
+                abstract = ""
+                inv_idx = work.get("abstract_inverted_index") or {}
+                if inv_idx:
+                    word_positions = [(pos, word) for word, positions in inv_idx.items() for pos in positions]
+                    word_positions.sort()
+                    abstract = " ".join(w for _, w in word_positions)
+
+                authors = []
+                for auth in (work.get("authorships") or [])[:5]:
+                    name = (auth.get("author") or {}).get("display_name", "")
+                    if name:
+                        authors.append(name)
+
+                doi = work.get("doi") or ""
+                primary = work.get("primary_location") or {}
+                url = primary.get("landing_page_url") or doi or ""
+
+                results.append(schemas.SearchResult(
+                    title=work.get("title") or "Untitled",
+                    authors=", ".join(authors),
+                    abstract=abstract[:1000] if abstract else "No abstract available.",
+                    year=work.get("publication_year"),
+                    doi=doi,
+                    url=url,
+                    source="openalex",
+                    external_id=work.get("id", "").replace("https://openalex.org/", ""),
+                ))
+            return results
+        except Exception as e:
+            last_error = str(e)
+            await asyncio.sleep(2 ** attempt)
+
+    # All OpenAlex attempts failed — fall back to Semantic Scholar
+    print(f"[Search] OpenAlex failed after 3 attempts ({last_error}), falling back to Semantic Scholar")
     try:
-        async with httpx.AsyncClient(timeout=15.0, headers={"User-Agent": "ResearchHub/1.0 (mailto:researchhub.app.render@gmail.com)"}) as client:
-            resp = await client.get(OPENALEX_BASE, params=params)
-            resp.raise_for_status()
-            data = resp.json()
+        return await search_semantic_scholar(query, per_page)
     except Exception as e:
-        raise HTTPException(status_code=502, detail=f"OpenAlex search failed: {str(e)}")
-
-    results = []
-    for work in data.get("results", []):
-        # Reconstruct abstract from inverted index
-        abstract = ""
-        inv_idx = work.get("abstract_inverted_index") or {}
-        if inv_idx:
-            word_positions = [(pos, word) for word, positions in inv_idx.items() for pos in positions]
-            word_positions.sort()
-            abstract = " ".join(w for _, w in word_positions)
-
-        authors = []
-        for auth in (work.get("authorships") or [])[:5]:
-            name = (auth.get("author") or {}).get("display_name", "")
-            if name:
-                authors.append(name)
-
-        doi = work.get("doi") or ""
-        url = ""
-        primary = work.get("primary_location") or {}
-        url = (primary.get("landing_page_url") or doi or "")
-
-        results.append(schemas.SearchResult(
-            title=work.get("title") or "Untitled",
-            authors=", ".join(authors),
-            abstract=abstract[:1000] if abstract else "No abstract available.",
-            year=work.get("publication_year"),
-            doi=doi,
-            url=url,
-            source="openalex",
-            external_id=work.get("id", "").replace("https://openalex.org/", ""),
-        ))
-    return results
+        raise HTTPException(status_code=502, detail=f"All search providers failed. Last error: {str(e)}")
 
 
 @router.get("/search", response_model=List[schemas.SearchResult])
@@ -70,6 +121,7 @@ async def search_papers(
     current_user: models.User = Depends(get_current_user)
 ):
     return await search_openalex(q, per_page=limit)
+
 
 
 @router.post("/import", response_model=schemas.PaperOut, status_code=201)
