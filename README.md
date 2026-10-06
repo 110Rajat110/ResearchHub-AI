@@ -5,7 +5,7 @@ Intelligent Research Paper Management and Analysis System powered by Agentic AI.
 ## 🚀 Features
 - **Smart Search**: Discover papers from academic databases (OpenAlex) with metadata and abstracts.
 - **Workspaces**: Organize papers into multiple project-specific workspaces.
-- **AI Chatbot**: Interact with a Groq-powered Llama 3.3 70B model that understands your saved papers using RAG (Retrieval-Augmented Generation).
+- **AI Chatbot**: Interact with a Groq-powered dynamic LLM model (e.g. openai/gpt-oss-120b) that understands your saved papers using RAG (Retrieval-Augmented Generation).
 - **Security**: JWT-based authentication for secure research data management.
 
 ## 🛠️ Setup Instructions
@@ -40,4 +40,4 @@ Intelligent Research Paper Management and Analysis System powered by Agentic AI.
 ## 🧠 Technical Stack
 - **Frontend**: React, TypeScript, Vite, Tailwind CSS.
 - **Backend**: FastAPI, SQLAlchemy, SQLite, Pydantic.
-- **AI/ML**: Groq (Llama 3.3 70B), Sentence-Transformers (Local Embeddings).
+- **AI/ML**: Groq (openai/gpt-oss-120b), Sentence-Transformers (Local Embeddings), ColPali (Visual Retrieval).

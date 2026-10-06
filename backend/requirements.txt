@@ -11,3 +11,6 @@ pydantic==2.7.1
 pydantic-settings==2.3.0
 numpy==1.26.4
 python-multipart==0.0.9
+sentence-transformers
+pdf2image
+Pillow

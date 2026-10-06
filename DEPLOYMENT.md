@@ -11,6 +11,10 @@ Ensure your production environment variables are set:
 - `GROQ_API_KEY`: Your live Groq API key.
 - `SECRET_KEY`: A strong, random 32-character hex string.
 - `DATABASE_URL`: In production, you might want to switch to PostgreSQL, but SQLite will continue to work.
+- `LLM_PROVIDER`: e.g. groq
+- `LLM_MODEL`: e.g. openai/gpt-oss-120b
+- `COLPALI_MODEL`: (Optional) e.g. vidore/colpali-v1.2
+- `COLPALI_DEVICE`: (Optional) e.g. cpu or cuda
 
 ### Frontend (`frontend/.env.production`)
 Create a file named `.env.production` in the `frontend` folder to point to your live backend domain:

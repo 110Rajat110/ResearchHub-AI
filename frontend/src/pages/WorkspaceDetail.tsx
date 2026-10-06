@@ -241,7 +241,7 @@ export default function WorkspaceDetail() {
                                     </div>
                                     <div>
                                         <p className="text-sm font-semibold text-white">ResearchHub AI</p>
-                                        <p className="text-xs text-gray-500">{papers.length} papers in context • Llama 3.3 70B</p>
+                                        <p className="text-xs text-gray-500">{papers.length} papers in context • openai/gpt-oss-120b</p>
                                     </div>
                                 </div>
                                 <div className="flex items-center gap-2">

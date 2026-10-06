@@ -33,7 +33,7 @@ seed_demo_user()
 
 app = FastAPI(
     title="ResearchHub AI",
-    description="Intelligent Research Paper Management and Analysis System powered by Groq Llama 3.3 70B",
+    description="Intelligent Research Paper Management and Analysis System powered by Groq and ColPali",
     version="1.0.0",
     contact={
         "name": "ResearchHub AI Team",

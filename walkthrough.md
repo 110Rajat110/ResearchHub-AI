@@ -23,7 +23,7 @@ Integrates with the **OpenAlex API** to search across 250M+ scientific papers. Y
 This is where the magic happens. When you ask a question:
 1. The system retrieves your imported papers.
 2. It uses **sentence-transformers** locally to find the most relevant paper chunks.
-3. It sends the query + relevant context to **Groq's Llama 3.3 70B** model.
+3. It sends the query + relevant context to **Groq's dynamic LLM** model.
 4. You get a scholarly, context-aware response based on *your* documents.
 
 ---

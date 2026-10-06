@@ -70,3 +70,15 @@ class Message(Base):
     conversation_id = Column(Integer, ForeignKey("conversations.id"), nullable=False)
 
     conversation = relationship("Conversation", back_populates="messages")
+
+
+class PaperVisualIndex(Base):
+    __tablename__ = "paper_visual_index"
+
+    id = Column(Integer, primary_key=True, index=True)
+    paper_id = Column(Integer, ForeignKey("papers.id", ondelete="CASCADE"), nullable=False)
+    page_number = Column(Integer, nullable=False)
+    embedding = Column(Text, nullable=False) # JSON encoded embedding list
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+    paper = relationship("Paper", backref="visual_pages")

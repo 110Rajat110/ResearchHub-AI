@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, BackgroundTasks
 from sqlalchemy.orm import Session
 from typing import List, Optional
 import httpx
@@ -74,6 +74,7 @@ async def search_papers(
 @router.post("/import", response_model=schemas.PaperOut, status_code=201)
 def import_paper(
     paper_data: schemas.PaperImport,
+    background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
     current_user: models.User = Depends(get_current_user)
 ):
@@ -107,6 +108,10 @@ def import_paper(
     db.add(paper)
     db.commit()
     db.refresh(paper)
+    
+    # Try to process PDF in the background
+    background_tasks.add_task(process_paper_pdf_background, paper.id, paper.url)
+    
     return paper
 
 
@@ -139,3 +144,49 @@ def delete_paper(
         raise HTTPException(status_code=404, detail="Paper not found")
     db.delete(paper)
     db.commit()
+
+
+from ..database import SessionLocal
+import requests
+from ..utils.visual_retriever import process_pdf_pages, get_visual_embeddings
+
+def process_paper_pdf_background(paper_id: int, pdf_url: str):
+    if not pdf_url:
+        return
+    try:
+        # Download the PDF
+        resp = requests.get(pdf_url, timeout=30.0)
+        # Verify it is actually a PDF by headers or at least check status code
+        if resp.status_code != 200:
+            return
+            
+        contents = resp.content
+        
+        # Process PDF and get visual representations
+        images = process_pdf_pages(contents)
+        if not images:
+            return
+
+        embeddings = get_visual_embeddings(images)
+        if not embeddings:
+            return
+
+        # Save to DB
+        db = SessionLocal()
+        try:
+            # Remove existing visual index for this paper if any
+            db.query(models.PaperVisualIndex).filter(models.PaperVisualIndex.paper_id == paper_id).delete()
+
+            for idx, emb in enumerate(embeddings):
+                visual_index = models.PaperVisualIndex(
+                    paper_id=paper_id,
+                    page_number=idx + 1,
+                    embedding=json.dumps(emb)
+                )
+                db.add(visual_index)
+            db.commit()
+        finally:
+            db.close()
+            
+    except Exception as e:
+        print(f"Background PDF processing failed for paper {paper_id}: {e}")

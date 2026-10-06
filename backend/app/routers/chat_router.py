@@ -63,8 +63,44 @@ def chat(
     # Find the most relevant papers using embeddings
     relevant_papers = get_relevant_papers(req.message, papers, top_k=5)
 
+    # Hybrid Retrieval (Visual/ColPali)
+    from ..utils.visual_retriever import get_visual_query_embedding, compute_visual_similarity
+    import json
+    
+    visual_context = []
+    visual_query_emb = get_visual_query_embedding(req.message)
+    if visual_query_emb:
+        # Get all visual pages for relevant papers
+        relevant_paper_ids = [p.id for p in relevant_papers]
+        if relevant_paper_ids:
+            visual_pages = db.query(models.PaperVisualIndex).filter(
+                models.PaperVisualIndex.paper_id.in_(relevant_paper_ids)
+            ).all()
+            
+            scored_pages = []
+            for page in visual_pages:
+                try:
+                    page_emb = json.loads(page.embedding)
+                    score = compute_visual_similarity(visual_query_emb, page_emb)
+                    scored_pages.append((score, page))
+                except Exception:
+                    pass
+                    
+            # Top 3 visual pages
+            scored_pages.sort(key=lambda x: x[0], reverse=True)
+            top_visual_pages = [p for _, p in scored_pages[:3]]
+            
+            for vp in top_visual_pages:
+                paper_title = next((p.title for p in relevant_papers if p.id == vp.paper_id), "Unknown Paper")
+                visual_context.append(f"Source: {paper_title}\nPage: {vp.page_number}\n[Visual content match for this page]")
+
     # Build system prompt with context
     system_prompt = build_system_prompt(relevant_papers)
+    
+    if visual_context:
+        system_prompt += "\n\nVISUAL/PAGE EVIDENCE:\n"
+        system_prompt += "\n\n".join(visual_context)
+        system_prompt += "\n\n(Note: The visual evidence indicates which pages contain figures/tables/text relevant to the query. Acknowledge these pages if they seem highly relevant to answering the user.)"
 
     # Build conversation history (last 10 messages)
     history = db.query(models.Message).filter(
@@ -86,15 +122,17 @@ def chat(
     db.commit()
 
     # Call Groq
+    llm_model = os.getenv("LLM_MODEL", "llama-3.1-70b-versatile")
     try:
         client = get_groq_client()
         completion = client.chat.completions.create(
-            model="llama-3.3-70b-versatile",
+            model=llm_model,
             messages=messages,
             temperature=0.3,
             max_tokens=1024,
         )
         reply = completion.choices[0].message.content
+        reply = reply.replace("*", "")
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"AI inference failed: {str(e)}")
 

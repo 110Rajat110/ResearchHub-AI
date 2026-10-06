@@ -78,7 +78,7 @@ export default function Dashboard() {
                     {[
                         { label: 'Workspaces', value: workspaces.length, icon: '⊞' },
                         { label: 'Total Papers', value: workspaces.reduce((a, w) => a + (w.paper_count || 0), 0), icon: '📄' },
-                        { label: 'AI Ready', value: 'Llama 3.3 70B', icon: '🤖' },
+                        { label: 'AI Ready', value: 'Groq LLM', icon: '🤖' },
                         { label: 'Database', value: 'OpenAlex', icon: '🔬' },
                     ].map((stat) => (
                         <div key={stat.label} className="card text-center">
