@@ -147,7 +147,7 @@ def delete_paper(
 
 
 from ..database import SessionLocal
-import requests
+
 from ..utils.visual_retriever import process_pdf_pages, get_visual_embeddings
 
 def process_paper_pdf_background(paper_id: int, pdf_url: str):
@@ -155,12 +155,13 @@ def process_paper_pdf_background(paper_id: int, pdf_url: str):
         return
     try:
         # Download the PDF
-        resp = requests.get(pdf_url, timeout=30.0)
-        # Verify it is actually a PDF by headers or at least check status code
-        if resp.status_code != 200:
-            return
+        with httpx.Client(timeout=30.0) as client:
+            resp = client.get(pdf_url, follow_redirects=True)
+            # Verify it is actually a PDF by headers or at least check status code
+            if resp.status_code != 200:
+                return
             
-        contents = resp.content
+            contents = resp.content
         
         # Process PDF and get visual representations
         images = process_pdf_pages(contents)
